@@ -149,6 +149,15 @@ textarea{width:100%;min-height:112px;resize:vertical;font:400 18px/1.6 var(--rea
   .banner{flex-wrap:wrap}.banner button{width:100%}
 }
 @media (max-width:520px){.grid{grid-template-columns:1fr}.card{padding:16px}.essay p{font-size:17px}.vi{font-size:19px}.sort{width:100%}}
+
+.ticker{display:flex;align-items:center;gap:12px;background:#FFF3D6;border:1px solid #E8CF94;border-radius:12px;padding:8px 14px;margin-bottom:14px;overflow:hidden}
+.ticker .tl{flex:none;font-weight:800;font-size:14px;color:#8A5A00;white-space:nowrap}
+.ticker .tv{flex:1;overflow:hidden;white-space:nowrap;-webkit-mask-image:linear-gradient(90deg,transparent,#000 4%,#000 96%,transparent);mask-image:linear-gradient(90deg,transparent,#000 4%,#000 96%,transparent)}
+.ticker .tt{display:inline-block;padding-left:100%;animation:tk 32s linear infinite;font-size:15px;color:#3B2A00}
+.ticker:hover .tt{animation-play-state:paused}
+.ticker .tt b{font-weight:800}.ticker .tt i{font-style:normal;margin:0 16px;color:#C79A3B}
+@keyframes tk{from{transform:translateX(0)}to{transform:translateX(-100%)}}
+@media (prefers-reduced-motion:reduce){.ticker .tt{animation:none;padding-left:0}.ticker .tv{overflow-x:auto}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 
 .vtoggle{all:unset;box-sizing:border-box;width:100%;display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-family:var(--disp);font-size:20px;color:var(--navy)}.vtoggle small{font:700 13px var(--ui);color:var(--muted);margin-left:8px}.vtoggle b{font:800 13px var(--ui);border:2px solid var(--line);border-radius:10px;padding:4px 12px;background:#fff}.vtoggle:focus-visible{outline:3px solid var(--ochre-soft);outline-offset:4px}#vwrap{margin-top:12px}.ventry .ex.more{margin-top:5px;padding-top:5px;border-top:1px dashed var(--line)}
@@ -268,7 +277,9 @@ function renderHome() {
   }
   else if (HS.tab === 'de') list = `<div class="grid">${L.map((i, k) => cardHTML(i, k)).join('')}</div>`;
   else list = TYPE_LIST.map(t => { const g = L.filter(i => ESSAYS[i].type === t); return g.length ? `<h3 class="gh">${esc(t)} (${g.length})</h3><div class="grid">${g.map((i, k) => cardHTML(i, k)).join('')}</div>` : ''; }).join('');
+  const NEWS = ESSAYS.slice(-5).reverse().map(e => `<b>Bài ${e.no}</b> ${esc(e.title)}`).join('<i>•</i>');
   view.innerHTML = `
+  <div class="ticker" role="status"><span class="tl">🆕 Mới cập nhật</span><div class="tv"><span class="tt">${NEWS}<i>•</i>Chúc bạn luyện dịch hiệu quả!</span></div></div>
   <section class="banner">${BANNER_ICO}
     <div class="txt"><h2>Đọc bài mẫu xong, dịch luôn từng câu</h2>
     <p>Mỗi câu tiếng Việt có một câu tiếng Anh trong bài mẫu. Bí thì bấm gợi ý để lộ từng từ, rồi kiểm tra để xem số từ trùng với bản mẫu.</p></div>
