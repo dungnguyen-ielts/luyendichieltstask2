@@ -218,7 +218,7 @@ const LOGO = `<svg width="98" viewBox="0 0 120 90" fill="none" aria-hidden="true
 const BANNER_ICO = `<svg width="44" height="44" viewBox="0 0 44 44" aria-hidden="true"><rect x="4" y="14" width="22" height="26" rx="3" fill="#7BC47F" stroke="#1F2D55" stroke-width="2" transform="rotate(-12 15 27)"/><rect x="14" y="10" width="22" height="28" rx="3" fill="#E8625A" stroke="#1F2D55" stroke-width="2" transform="rotate(8 25 24)"/><rect x="20" y="18" width="20" height="22" rx="3" fill="#6FA8E8" stroke="#1F2D55" stroke-width="2"/></svg>`;
 const hd = document.getElementById('hd'), appEl = document.getElementById('app');
 const TYPE_LIST = [...new Set(ESSAYS.map(e => e.type))];
-const HS = { tab: 'de', scope: 'all', range: 'all', types: new Set(), sort: 'asc', open: false };
+const HS = { tab: 'de', scope: 'all', range: 'all', types: new Set(), topics: new Set(), sort: 'asc', open: false };
 
 function setCrumb() {
   appEl.classList.toggle('narrow', stage !== 'home');
@@ -254,11 +254,15 @@ function cardHTML(i, k) {
 }
 const SHORT = { 'Advantages outweigh disadvantages': 'Advantages vs disadvantages', 'Methods and most effective': 'Methods and best method' };
 const RANGES = [['all', 'Tất cả'], ['1-5', 'Bài 1-5'], ['6-10', 'Bài 6-10'], ['11-15', 'Bài 11-15'], ['16-20', 'Bài 16-20']];
+const TOPICS = { 'Giáo dục': [4,5,6,7,9,16,19,20,21,23], 'Công việc & kinh doanh': [6,10,11,14,15,24,26], 'Công nghệ & truyền thông': [2,9,10,11,21,32], 'Môi trường & động vật': [13,17,25,26,28,29,30], 'Giao thông & đô thị': [12,30], 'Sức khỏe & lối sống': [1,5,8,18], 'Văn hóa & xã hội': [3,10,15,22,24,27,29], 'Pháp luật & chính phủ': [1,19,20,22,28,31] };
+const TOPIC_LIST = Object.keys(TOPICS).filter(t => ESSAYS.some(e => TOPICS[t].includes(e.no)));
+function topicsOf(e) { return TOPIC_LIST.filter(t => TOPICS[t].includes(e.no)); }
 function visible() {
   let L = ESSAYS.map((e, i) => i);
   if (HS.range !== 'all') { const [a, b] = HS.range.split('-').map(Number); L = L.filter(i => ESSAYS[i].no >= a && ESSAYS[i].no <= b); }
   if (HS.scope === 'open') L = L.filter(i => { const p = progressOf(i); return p.d < p.n; });
   if (HS.types.size) L = L.filter(i => HS.types.has(ESSAYS[i].type));
+  if (HS.topics.size) L = L.filter(i => topicsOf(ESSAYS[i]).some(t => HS.topics.has(t)));
   if (HS.sort === 'desc') L.sort((x, y) => ESSAYS[y].no - ESSAYS[x].no);
   else if (HS.sort === 'words') L.sort((x, y) => ESSAYS[x].words - ESSAYS[y].words);
   else L.sort((x, y) => ESSAYS[x].no - ESSAYS[y].no);
@@ -298,9 +302,12 @@ function renderHome() {
     <button class="pill ${HS.scope === 'all' ? 'on' : ''}" data-scope="all">Mọi bài</button>
     <button class="pill ${HS.scope === 'open' ? 'on' : ''}" data-scope="open">Chưa làm xong</button></div>
   <div class="filter ${HS.open ? 'open' : ''}" id="filter">
-    <button type="button" id="fbtn" aria-expanded="${HS.open}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1F2D55" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18l-7 8v6l-4-2v-4z"/></svg>Lọc theo dạng đề${HS.types.size ? ` (${HS.types.size})` : ''}<span class="chev">▼</span></button>
-    <div class="body"><p class="hintx">Chọn một hoặc nhiều dạng đề để chỉ hiện các bài thuộc dạng đó.</p>
-    <div class="chips">${TYPE_LIST.map(t => `<button class="chip ${HS.types.has(t) ? 'on' : ''}" data-type="${esc(t)}">${esc(t)}</button>`).join('')}</div></div>
+    <button type="button" id="fbtn" aria-expanded="${HS.open}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1F2D55" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18l-7 8v6l-4-2v-4z"/></svg>Lọc theo dạng đề và chủ đề${HS.types.size + HS.topics.size ? ` (${HS.types.size + HS.topics.size})` : ''}<span class="chev">▼</span></button>
+    <div class="body"><p class="hintx">Dạng đề: chọn một hoặc nhiều dạng để chỉ hiện các bài thuộc dạng đó.</p>
+    <div class="chips">${TYPE_LIST.map(t => `<button class="chip ${HS.types.has(t) ? 'on' : ''}" data-type="${esc(t)}">${esc(t)}</button>`).join('')}</div>
+    <p class="hintx" style="margin-top:14px">Chủ đề: chọn một hoặc nhiều chủ đề (hiện bài thuộc ít nhất một chủ đề đã chọn).</p>
+    <div class="chips">${TOPIC_LIST.map(t => `<button class="chip ${HS.topics.has(t) ? 'on' : ''}" data-topic="${esc(t)}">${esc(t)} <small>(${ESSAYS.filter(e => TOPICS[t].includes(e.no)).length})</small></button>`).join('')}</div>
+    ${HS.types.size + HS.topics.size ? `<button type="button" class="pill" id="fclear" style="margin-top:14px">Xóa bộ lọc</button>` : ''}</div>
   </div>
   <div class="fbar"><div class="pills"></div>
     <label class="sort">Hiển thị <select id="range"><option value="all" ${HS.range === 'all' ? 'selected' : ''}>Tất cả (${ESSAYS.length} bài)</option>${Array.from({ length: Math.ceil(Math.max(...ESSAYS.map(e => e.no)) / 10) }, (_, g) => { const v = `${g * 10 + 1}-${g * 10 + 10}`; return `<option value="${v}" ${HS.range === v ? 'selected' : ''}>Bài ${g * 10 + 1} → ${g * 10 + 10}</option>`; }).join('')}</select></label>
@@ -312,6 +319,8 @@ function renderHome() {
   document.getElementById('next0').onclick = startNext;
   view.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { HS.tab = b.dataset.tab; renderHome(); });
   view.querySelectorAll('[data-scope]').forEach(b => b.onclick = () => { HS.scope = b.dataset.scope; renderHome(); });
+  view.querySelectorAll('[data-topic]').forEach(b => b.onclick = () => { const t = b.dataset.topic; HS.topics.has(t) ? HS.topics.delete(t) : HS.topics.add(t); renderHome(); });
+  const fcl = document.getElementById('fclear'); if (fcl) fcl.onclick = () => { HS.types.clear(); HS.topics.clear(); renderHome(); };
   view.querySelectorAll('[data-type]').forEach(b => b.onclick = () => { const t = b.dataset.type; HS.types.has(t) ? HS.types.delete(t) : HS.types.add(t); renderHome(); });
   document.getElementById('fbtn').onclick = () => { HS.open = !HS.open; renderHome(); };
   document.getElementById('range').onchange = e => { HS.range = e.target.value; renderHome(); };
