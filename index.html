@@ -20,6 +20,18 @@
 .wpop p{margin:0 0 16px;font-weight:700;font-size:16px;color:#3a4566;line-height:1.55}
 .wpop .x{position:absolute;top:10px;right:12px;width:34px;height:34px;min-height:0;padding:0;border-radius:50%;font-size:22px;line-height:1}
 .wpop .go{width:100%}
+
+#dpop{position:fixed;z-index:60;width:96px;min-height:0;padding:7px 8px;border-radius:999px;border:2px solid var(--navy);background:var(--navy);color:#fff;font-size:14px;font-weight:800;box-shadow:2px 2px 0 rgba(31,45,85,.35);cursor:pointer}
+#dpop[hidden],#dpanel[hidden]{display:none}
+#dpanel{position:fixed;z-index:61;right:18px;bottom:18px;width:min(380px,calc(100vw - 24px));max-height:70vh;overflow:auto;background:#FFFCF3;border:2px solid var(--navy);border-radius:18px;box-shadow:4px 4px 0 var(--navy);padding:14px 16px 12px}
+#dpanel .dx{position:absolute;top:6px;right:8px;width:32px;height:32px;min-height:0;padding:0;border-radius:50%;font-size:20px;line-height:1}
+#dpanel .dh{display:flex;align-items:center;gap:8px;padding-right:36px;margin-bottom:6px}#dpanel .dh b{font-size:20px}
+#dpanel .dsp{min-height:0;width:34px;height:34px;padding:0;border-radius:50%;font-size:16px}#dpanel .dph{color:var(--muted);font-size:14px}
+#dpanel .ds{margin-top:10px}#dpanel .dt{font-size:12.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:3px}
+#dpanel .dr{font-size:15px;line-height:1.5;margin:2px 0}#dpanel .dr i{color:#8A5A00;font-style:normal;font-weight:800;margin-right:4px}
+#dpanel .dvi{font-size:16px}#dpanel .dalt{font-size:14px;color:var(--muted);margin-top:3px}#dpanel .dload{color:var(--muted)}
+#dpanel .dl{display:flex;gap:14px;margin-top:12px;font-size:14px;font-weight:700}#dpanel .dl a{color:var(--navy)}
+@media (max-width:600px){#dpanel{right:8px;left:8px;bottom:8px;width:auto}}
 </style></head><body>
 <title>Dịch Câu Theo Bài</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -356,6 +368,67 @@ function showWelcome() {
   el.addEventListener('click', e => { if (e.target === el) close(); });
   document.body.appendChild(el);
 }
+
+(function () {
+  const pop = document.createElement('button'); pop.id = 'dpop'; pop.type = 'button'; pop.textContent = '🔍 Tra từ'; pop.hidden = true; document.body.appendChild(pop);
+  const panel = document.createElement('div'); panel.id = 'dpanel'; panel.hidden = true; panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-label', 'Tra từ điển'); document.body.appendChild(panel);
+  let cur = '', tm = null, token = 0;
+  function selInfo() {
+    const s = window.getSelection(); if (!s || s.rangeCount === 0 || s.isCollapsed) return null;
+    let t = s.toString().replace(/\s+/g, ' ').trim().replace(/^[^A-Za-z]+|[^A-Za-z]+$/g, '');
+    if (!t || t.length > 60 || t.split(' ').length > 6 || !/^[A-Za-z][A-Za-z'’\- ]*$/.test(t)) return null;
+    const an = s.anchorNode, el = an && (an.nodeType === 1 ? an : an.parentElement);
+    if (el && el.closest('textarea,input,select,#dpanel,#dpop,.wpop')) return null;
+    return { t, rect: s.getRangeAt(0).getBoundingClientRect() };
+  }
+  function place(rect) {
+    const coarse = window.matchMedia && matchMedia('(pointer:coarse)').matches, w = 96;
+    let top = coarse ? rect.bottom + 12 : rect.top - 42; if (top < 8) top = rect.bottom + 10;
+    let left = Math.min(Math.max(8, rect.left + rect.width / 2 - w / 2), window.innerWidth - w - 8);
+    pop.style.top = top + 'px'; pop.style.left = left + 'px';
+  }
+  document.addEventListener('selectionchange', () => {
+    clearTimeout(tm); tm = setTimeout(() => { const i = selInfo(); if (!i) { pop.hidden = true; return; } cur = i.t; pop.hidden = false; place(i.rect); }, 200);
+  });
+  pop.addEventListener('mousedown', e => e.preventDefault());
+  pop.addEventListener('click', () => { pop.hidden = true; openPanel(cur); });
+  function localHits(w) {
+    const lw = w.toLowerCase(), out = [];
+    Object.keys(VOCAB).forEach(no => (VOCAB[no] || []).forEach(v => { const t = v[0].toLowerCase(); if (t === lw || (' ' + t + ' ').indexOf(' ' + lw + ' ') >= 0 || (lw.indexOf(' ') > 0 && t.indexOf(lw) >= 0)) out.push({ no, term: v[0], vi: v[2] }); }));
+    const seen = new Set(); return out.filter(h => { const k = h.term; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 4);
+  }
+  function getJSON(url) {
+    const ac = new AbortController(), t = setTimeout(() => ac.abort(), 7000);
+    return fetch(url, { signal: ac.signal }).then(r => { clearTimeout(t); if (!r.ok) throw new Error('http'); return r.json(); });
+  }
+  function openPanel(w) {
+    const my = ++token, lw = w.toLowerCase(), q = encodeURIComponent(lw), single = w.indexOf(' ') < 0;
+    const hits = localHits(w);
+    const links = `<div class="dl"><a target="_blank" rel="noopener" href="https://dictionary.cambridge.org/dictionary/english/${q}">Cambridge</a><a target="_blank" rel="noopener" href="https://translate.google.com/?sl=en&tl=vi&text=${q}&op=translate">Google Dịch</a></div>`;
+    panel.innerHTML = `<button type="button" class="dx" aria-label="Đóng">×</button><div class="dh"><b>${esc(w)}</b><button type="button" class="dsp" aria-label="Nghe phát âm">🔊</button><span class="dph"></span></div>
+      ${hits.length ? `<div class="ds"><div class="dt">Trong bài mẫu</div>${hits.map(h => `<div class="dr"><b>${esc(h.term)}</b>: ${esc(h.vi)} <small>(bài ${esc(h.no)})</small></div>`).join('')}</div>` : ''}
+      <div class="ds"><div class="dt">Nghĩa tiếng Việt</div><div class="dvi dload">Đang tra…</div></div>
+      ${single ? `<div class="ds"><div class="dt">Định nghĩa tiếng Anh</div><div class="den dload">Đang tra…</div></div>` : ''}${links}`;
+    panel.hidden = false;
+    panel.querySelector('.dx').onclick = () => { panel.hidden = true; token++; };
+    panel.querySelector('.dsp').onclick = () => { try { const u = new SpeechSynthesisUtterance(w); u.lang = 'en-US'; speechSynthesis.cancel(); speechSynthesis.speak(u); } catch (e) {} };
+    const fail = (sel, msg) => { const el = panel.querySelector(sel); if (el) { el.classList.remove('dload'); el.textContent = msg; } };
+    getJSON(`https://api.mymemory.translated.net/get?q=${q}&langpair=en|vi`).then(d => {
+      if (my !== token) return; const el = panel.querySelector('.dvi'); if (!el) return;
+      const main = d && d.responseData && d.responseData.translatedText; const alts = [];
+      ((d && d.matches) || []).forEach(m => { const x = (m.translation || '').trim(); if (x && x.toLowerCase() !== (main || '').toLowerCase() && !alts.includes(x) && alts.length < 3 && x.length < 60) alts.push(x); });
+      el.classList.remove('dload');
+      el.innerHTML = main ? `<b>${esc(main)}</b>${alts.length ? `<div class="dalt">Cũng có thể: ${alts.map(esc).join(' · ')}</div>` : ''}` : 'Chưa tìm thấy nghĩa.';
+    }).catch(() => { if (my === token) fail('.dvi', 'Không tải được nghĩa (có thể do mạng). Bạn thử mở Cambridge hoặc Google Dịch bên dưới.'); });
+    if (single) getJSON(`https://api.dictionaryapi.dev/api/v2/entries/en/${q}`).then(d => {
+      if (my !== token) return; const e = d && d[0]; if (!e) throw new Error('none');
+      const ph = e.phonetic || ((e.phonetics || []).find(p => p.text) || {}).text; if (ph) panel.querySelector('.dph').textContent = ph;
+      const el = panel.querySelector('.den'); el.classList.remove('dload');
+      el.innerHTML = (e.meanings || []).slice(0, 3).map(m => `<div class="dr"><i>${esc(m.partOfSpeech || '')}</i> ${esc(((m.definitions || [])[0] || {}).definition || '')}</div>`).join('') || 'Chưa có định nghĩa.';
+    }).catch(() => { if (my === token) fail('.den', 'Chưa có định nghĩa cho từ này.'); });
+  }
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { panel.hidden = true; pop.hidden = true; } });
+})();
 function renderHome() {
   stage = 'home'; setCrumb();
   const L = visible();
